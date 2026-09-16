@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 type Evidence struct {
@@ -23,7 +24,7 @@ type ScanResult struct {
 
 func main() {
 	if len(os.Args) < 3 {
-		fmt.Println("Usage: aibom scan <path_to_file>")
+		printError("Usage: aibom scan <path_to_file>")
 		os.Exit(1)
 	}
 
@@ -31,33 +32,41 @@ func main() {
 	filePath := os.Args[2]
 
 	if command != "scan" {
-		fmt.Println("❌ Unknown command. Use 'scan'.")
+		printError("Unknown command. Use 'scan'.")
 		os.Exit(1)
 	}
 
-	fmt.Printf("🔍 Scanning %s for AI-generated code...\n\n", filePath)
+	// Find the Python script relative to the executable's location
+	exePath, err := os.Executable()
+	if err != nil {
+		printError(fmt.Sprintf("Error getting executable path: %v", err))
+		os.Exit(1)
+	}
+	exeDir := filepath.Dir(exePath)
+	pythonScript := filepath.Join(exeDir, "engine", "detector.py")
 
 	// Run the Python engine
-	cmd := exec.Command("python", "engine/detector.py", filePath)
-	output, err := cmd.Output()
+	cmd := exec.Command("python", pythonScript, filePath)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("❌ Error running scanner: %v\n", err)
+		printError(fmt.Sprintf("Error running scanner: %v | Output: %s", err, string(output)))
 		os.Exit(1)
 	}
 
 	// Parse JSON
 	var result ScanResult
 	if err := json.Unmarshal(output, &result); err != nil {
-		fmt.Printf("❌ Error parsing scanner output: %v\n", err)
+		printError(fmt.Sprintf("Error parsing scanner output: %v | Raw: %s", err, string(output)))
 		os.Exit(1)
 	}
 
 	if result.Error != "" {
-		fmt.Printf("❌ Error: %s\n", result.Error)
+		printError(result.Error)
 		os.Exit(1)
 	}
 
 	// Print the Report
+	fmt.Printf("🔍 Scanning %s for AI-generated code...\n\n", filePath)
 	fmt.Printf("📄 File: %s\n", result.File)
 	fmt.Printf("🤖 AI Probability: %.0f%%\n", result.AIProbability*100)
 	fmt.Printf("⚠️  Risk Level: %s\n", result.RiskLevel)
@@ -70,4 +79,10 @@ func main() {
 	} else {
 		fmt.Println("\n✅ No obvious AI-generated patterns detected.")
 	}
+}
+
+func printError(msg string) {
+	res := ScanResult{Error: msg}
+	data, _ := json.Marshal(res)
+	fmt.Println(string(data))
 }
