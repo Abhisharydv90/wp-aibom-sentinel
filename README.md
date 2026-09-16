@@ -61,4 +61,4 @@ go build -o aibom ./cmd/aibom
 
 ## 👤 Author
 
-Built by [Abhisharydv90](https://github.com/Abhisharydv90). I'm looking for my next role. If you're hiring, let's talk.
+Built by [Abhisharydv90](https://github.com/Abhisharydv90). 
