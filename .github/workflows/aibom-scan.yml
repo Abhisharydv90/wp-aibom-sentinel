@@ -1,0 +1,58 @@
+name: AIBOM Scan
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build AIBOM Scanner
+        run: go build -o aibom ./cmd/aibom
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            **/*.php
+            **/*.js
+            **/*.ts
+
+      - name: Scan changed files
+        id: scan
+        run: |
+          echo "## 🤖 AIBOM Scan Report" > report.md
+          echo "" >> report.md
+          
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            if [ -f "$file" ]; then
+              echo "### 📄 \`$file\`" >> report.md
+              echo '```' >> report.md
+              ./aibom scan "$file" >> report.md 2>&1 || true
+              echo '```' >> report.md
+              echo "" >> report.md
+            fi
+          done
+
+      - name: Comment on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: report.md
